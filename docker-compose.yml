@@ -27,3 +27,12 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
       KAFKA_LOG_DIRS: '/var/lib/kafka/data'
       CLUSTER_ID: 'Mk3OEYBSD34fcwNTJENDM2Qk'
+
+
+# instalacao:
+# mkdir -p ~/.docker/cli-plugins/
+#  curl -SL https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+#   chmod +x ~/.docker/cli-plugins/docker-compose
+
+#   verificar: 
+#    docker compose version
