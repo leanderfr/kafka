@@ -15,7 +15,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       
       # 3. What metadata Kafka returns to clients so they can route requests correctly
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-broker:9092,EXTERNAL://leander.vps-kinghost.net/:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-broker:9092,EXTERNAL://leander.vps-kinghost.net:9094
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       
