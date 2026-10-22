@@ -1,0 +1,39 @@
+
+version: '3.8'
+
+services:
+  kafka:
+    image: apache/kafka:latest
+    container_name: kafka-broker
+    ports:
+      - "9094:9094" # Exposes the EXTERNAL listener to your host machine
+    environment:
+      # 1. Define where Kafka binds inside the container
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      
+      # 2. Map your custom names to standard Kafka security protocols
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      
+      # 3. What metadata Kafka returns to clients so they can route requests correctly
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-broker:9092,EXTERNAL://leander.vps-kinghost.net:9094
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      
+      # KRaft Required Settings
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      CLUSTER_ID: 'Mk3OEYBSD34fcwNTJENDM2Qk'
+
+
+# instalacao:
+# mkdir -p ~/.docker/cli-plugins/
+#  curl -SL https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+#   chmod +x ~/.docker/cli-plugins/docker-compose
+
+#   verificar: 
+#    docker compose version
+
