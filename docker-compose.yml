@@ -38,3 +38,7 @@ services:
       KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
       # Aponta para o nome do container do Kafka na rede interna do Docker
       KAFKA_REST_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:29092"
+      # Configuração do CORS:
+      KAFKA_REST_ACCESS_CONTROL_ALLOW_ORIGIN: '*'
+      KAFKA_REST_ACCESS_CONTROL_ALLOW_METHODS: 'GET,POST,PUT,DELETE,OPTIONS,HEAD'
+      KAFKA_REST_ACCESS_CONTROL_ALLOW_HEADERS: 'Origin,Content-Type,Accept,Authorization'      
