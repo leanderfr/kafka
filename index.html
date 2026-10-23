@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<body>
+
+    <header>
+        <h1>Bem-vindo ao Meu Site</h1>
+    </header>
+
+
+</body>
+
+<script>
+
+// curl -X GET leander.vps-kinghost.net:8082/topics
+// curl -X POST  leander.vps-kinghost.net:8082/consumers/consumidor
+ // curl -X GET  leander.vps-kinghost.net:8082/consumers
+
+// http://rest-proxy:8082/consumers/consumidor/instances/rest-consumer-0f851889-afb8-49df-858c-002d77774605
+
+const PROXY_URL = 'http://leander.vps-kinghost.net:8082';
+const GROUP_NAME = 'consumidor20';
+const INSTANCE_NAME = 'instancia_consumidor';
+const TOPIC_NAME = 'crud_operations';
+
+
+// Escolha 'json' ou 'binary' (Texto Puro/Bytes). 
+// Se escolher 'binary', os dados virão em Base64 e precisarão ser decodificados.
+const FORMAT = 'binary'; 
+
+const headersv2 = {
+  'Content-Type': 'application/vnd.kafka.v2+json',
+  'Accept': 'application/vnd.kafka.v2+json',
+};
+
+
+/*
+
+listar consumidores:
+kafka-consumer-groups.sh --bootstrap-server leander.vps-kinghost.net:9092 --list
+
+listar topicos um grupo esta inscrito
+kafka-consumer-groups.sh --bootstrap-server leander.vps-kinghost.net:9092 --describe --group consumidora
+
+apagar um ou mais grupos :
+kafka-consumer-groups.sh --bootstrap-server leander.vps-kinghost.net:9092 --delete  --group consumidord 
+--group consumidor20 --group consumidor17
+
+
+apagar todos os topicos
+kafka-topics.sh --bootstrap-server leander.vps-kinghost.net:9092 --delete --topic '.*'
+
+se um grupo nao estiver vazio, verificar status com:
+kafka-consumer-groups.sh --bootstrap-server leander.vps-kinghost.net:9092 --describe --group consumidor20 --state
+
+obter quem ainda esta consumindo de determinado grupo (qdo ele nao permitir excluir um grupo)
+kafka-consumer-groups.sh --bootstrap-server leander.vps-kinghost.net:9092 --describe --group consumidor20 --members
+
+
+
+
+
+
+
+
+
+*/
+
+
+async function consumirMensagens() {
+  let instanceUrl = ''
+
+  try {
+    // 1. Criar a instância do consumidor
+    console.log('Criando instância do consumidor...');
+    const createRes = await fetch(`${PROXY_URL}/consumers/${GROUP_NAME}`, {
+      method: 'POST',
+      headers: headersv2,
+      body: JSON.stringify({
+        name: INSTANCE_NAME,
+        format: 'binary',
+        'auto.offset.reset': 'latest'
+      })
+    });
+
+
+    // Código 409 significa que a instância já existe (pode prosseguir)
+    if (!createRes.ok) {
+      if (createRes.status == 409) {
+        instanceUrl = `${PROXY_URL}/consumers/${GROUP_NAME}/instances/${INSTANCE_NAME}`;
+      } else {
+        throw new Error(`Erro ao criar consumidor: ${createRes.statusText}`);
+      }
+    }  else {
+      const consumerData = await createRes.json();
+      // A API retorna a URL base exata que você deve usar para as próximas chamadas
+      instanceUrl = consumerData.base_uri; 
+
+      instanceUrl = instanceUrl.replace('rest-proxy', 'leander.vps-kinghost.net')
+    }
+
+
+console.log('')
+console.log('url criada='+instanceUrl)
+console.log('')
+
+
+    // 2. Inscrever o consumidor no tópico
+    console.log(`Inscrevendo no tópico: ${TOPIC_NAME}...`);
+    const subRes = await fetch(`${instanceUrl}/subscription`, {
+      method: 'POST',
+      headers: headersv2,
+      body: JSON.stringify({ topics: [TOPIC_NAME] })
+    });
+
+    if (!subRes.ok) {
+      throw new Error(`Erro na inscrição: ${subRes.statusText}`);
+    }
+
+    // 3. Loop para buscar (Fetch) as mensagens
+    console.log('Iniciando busca de mensagens (polling)...');
+    //const acceptHeader = `application/vnd.kafka.${FORMAT}.v2+json`;
+
+//    const acceptHeader = `application/vnd.kafka.v2+json`;
+
+
+//vnd.kafka.v2+json
+
+//http://leander.vps-kinghost.net:8082/consumers/consumidor4/instances/instancia_consumidor4/records
+
+//http://leander.vps-kinghost.net:8082/consumers/consumidor4/instances/instancia_consumidor4/tre
+
+    while (true) {
+  console.log('111')
+      const recordsRes = await fetch(`${instanceUrl}/records`, {
+        method: 'GET',
+        headers: headersv2,
+      });
+
+
+      if (!recordsRes.ok) {
+        console.error(`Erro ao buscar registros: ${recordsRes.statusText}`);
+        await new Promise(resolve => setTimeout(resolve, 15000)); // Espera antes de tentar de novo
+        continue;
+      }
+
+      const records = await recordsRes.json();
+      
+      if (records.length > 0) {
+        console.log(`\n[${new Date().toISOString()}] Recebidas ${records.length} mensagens:`);
+        
+        records.forEach(record => {
+          //let valor = record.value;
+          
+          // Se o formato for binário, decodifica de Base64 para String
+          //if (FORMAT === 'binary' && valor) {
+            //valor = Buffer.from(valor, 'base64').toString('utf-8');
+          //}
+
+let valor = base64ToString(record.value);
+
+          console.log(`- Chave: ${record.key} | Valor: ${typeof valor === 'object' ? JSON.stringify(valor) : valor} | Offset: ${record.offset}`);
+        });
+      }
+
+      // Aguarda 1 segundo antes do próximo poll para não sobrecarregar o proxy
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+  } catch (error) {
+    console.error('Erro no fluxo do Kafka Proxy:', error);
+  }
+}
+
+consumirMensagens();
+
+
+// Função para decodificar UTF-8 corretamente no navegador
+function base64ToString(base64Str) {
+  const binaryString = atob(base64Str);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+</script>
+
+</html>
+
+<!--
+http://leander.vps-kinghost.net:8082/consumers/consumidor/instances/rest-consumer-0f851889-afb8-49df-858c-002d77774605/records
+
+(index):118  GET http://leander.vps-kinghost.net:8082/consumers/consumidor/instances/rest-consumer-0f851889-afb8-49df-858c-002d77774605/records 406 (Not Acceptable)
+consumirMensagens @ (index):118
+(index):124 Erro ao buscar registros: Not Acceptable
+
+-->

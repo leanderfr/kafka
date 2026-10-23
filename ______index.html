@@ -1,0 +1,126 @@
+
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página 2</title>
+</head>
+<body>
+
+    <header>
+        <h1>Página 2</h1>
+    </header>
+
+</body>
+
+<script>
+
+// Configurações iniciais
+const REST_PROXY_URL = 'http://leander.vps-kinghost.net:8082'; // Altere para a URL do seu proxy
+const TOPIC_NAME = 'crud_operations';
+const CONSUMER_GROUP = 'meu_grupo_js';
+const CONSUMER_NAME = 'consumidor_browser4';
+const CONSUMER_INSTANCE = 'instancia_consumidor';
+
+// Headers padrão exigidos pela API v2 do Confluent REST Proxy
+const headersv2 = {
+  'Content-Type': 'application/vnd.kafka.v2+json',
+  'Accept': 'application/vnd.kafka.v2+json'
+};
+
+async function iniciarConsumidorKafka() {
+  try {
+    // 1. CRIAR O CONSUMIDOR NO PROXY
+    console.log('Criando instância do consumidor...');
+
+//#http://leander.vps-kinghost.net:8082/consumers/meu_grupo_js
+
+// http://rest-proxy:8082/consumers/meu_grupo_js/instances/instancia_consumidor/subscription
+
+    const createResponse = await fetch(`${REST_PROXY_URL}/consumers/${CONSUMER_GROUP}`, {
+      method: 'POST',
+      headers: headersv2,
+      body: JSON.stringify({
+        name: CONSUMER_INSTANCE,
+        format: 'json', // Pode ser 'json', 'avro', 'protobuf' ou 'binary'
+        'auto.offset.reset': 'earliest' // Lê desde o início caso não haja offset salvo
+      })
+    });
+
+    if (!createResponse.ok && createResponse.status !== 409) { 
+      // 409 significa que o consumidor já existe, o que é aceitável em reloads
+      throw new Error(`Erro ao criar consumidor: ${createResponse.statusText}`);
+    }
+
+    const consumerData = await createResponse.json();
+    // A API retorna a URL base exata que você deve usar para as próximas chamadas
+    let baseConsumerUrl = consumerData.base_uri; 
+
+console.log('tipo='+typeof baseConsumerUrl)
+
+baseConsumerUrl = baseConsumerUrl.replace('rest-proxy', 'leander.vps-kinghost.net')
+
+    console.log(`Consumidor criado com sucesso em: ${baseConsumerUrl}`);
+
+    // 2. ASSINAR O TÓPICO
+    console.log(`Assinando o tópico: ${TOPIC_NAME}...`);
+    const subscriptionResponse = await fetch(`${baseConsumerUrl}/subscription`, {
+      method: 'POST',
+      headers: headersv2,
+      body: JSON.stringify({
+        topics: [TOPIC_NAME]
+      })
+    });
+
+    if (!subscriptionResponse.ok) {
+      throw new Error(`Erro ao assinar tópico: ${subscriptionResponse.statusText}`);
+    }
+    console.log('Inscrição realizada!');
+
+    // 3. POLLING (BUSCA CONTÍNUA DOS DADOS)
+    // O REST Proxy exige requisições repetidas para trazer novas mensagens
+
+// http://leander.vps-kinghost.net:8082/consumers/meu_grupo_js/instances/instancia_consumidor2/records
+    setInterval(async () => {
+      try {
+        const recordsResponse = await fetch(`${baseConsumerUrl}/records`, {
+          method: 'GET',
+          headers: { 'Accept': `application/vnd.kafka.v2+json` }
+        });
+
+        if (recordsResponse.ok) {
+          const records = await recordsResponse.json();
+          
+          if (records.length > 0) {
+            records.forEach(record => {
+              console.log('Mensagem Recebida:', {
+                chave: record.key,
+                valor: record.value,
+                particao: record.partition,
+                offset: record.offset
+              });
+            });
+          }
+        } else {
+          console.error('Erro ao buscar registros:', recordsResponse.statusText);
+        }
+      } catch (err) {
+        console.error('Erro no loop de polling:', err);
+      }
+    }, 20000); // Executa a busca a cada 2 segundos
+
+  } catch (error) {
+    console.error('Falha no fluxo do Kafka:', error);
+  }
+}
+
+// Inicia o processo
+iniciarConsumidorKafka();
+
+
+</script>
+
+</html>
+
